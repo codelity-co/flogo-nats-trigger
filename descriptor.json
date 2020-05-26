@@ -1,0 +1,183 @@
+{
+  "name": "flogo-nats-trigger",
+  "type": "flogo:trigger",
+  "version": "0.3.0",
+  "title": "Codelity Flogo NATS Trigger",
+  "description": "Codelity Flogo NATS Trigger",
+  "homepage": "https://github.com/codelity-co/flogo-nats-trigger",
+  "settings": [
+    {
+      "name": "clusterUrls",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "connName",
+      "type": "string"
+    },
+    {
+      "name": "auth",
+      "type": "object",
+      "properties": [
+        {
+          "name": "username",
+          "type": "string",
+          "decription": "NATS username"
+        },
+        {
+          "name": "password",
+          "type": "string",
+          "format": "password",
+          "description": "NATS user password, required if username is defined"
+        },
+        {
+          "name": "token",
+          "type": "string",
+          "description": "NATS token authentication"
+        },
+        {
+          "name": "nkeySeedfile",
+          "type": "string",
+          "description": "Seed file path to read NATS NKey seed"
+        },
+        {
+          "name": "credfile",
+          "type": "string",
+          "description": "Credential file path for decentralized authentication based on JSON Web Tokens (JWT)."
+        }
+      ]
+    },
+    {
+      "name": "reconnect",
+      "type": "object",
+      "properties": [
+        {
+          "name": "autoReconnect",
+          "type": "boolean",
+          "description": "Enable NATS connection reconnect",
+          "default": true
+        }, 
+        {
+          "name": "maxReconnects",
+          "type": "integer",
+          "description": "Max Reconnect Attempts",
+          "default": 5
+        },
+        {
+          "name": "dontRandomize",
+          "type": "boolean",
+          "description": "Disable randomize reconnection",
+          "default": false
+        },
+        {
+          "name": "reconnectWait",
+          "type": "integer",
+          "description": "Reconnect wait in seconds",
+          "default": 1
+        },
+        {
+          "name": "reconnectBufferSize",
+          "type": "integer",
+          "description": "Reconnect buffer size",
+          "default": 1048576
+        }
+      ]
+    },
+    {
+      "name": "sslConfig",
+      "type": "object",
+      "properties": [
+        {
+          "name": "skipVerify",
+          "type": "boolean",
+          "description": "Skip SSL cert verification",
+          "default": true
+        },
+        {
+          "name": "caFile",
+          "type": "string",
+          "description": "CA root public key file"
+        },
+        {
+          "name": "certFile",
+          "type": "string",
+          "description": "Client cert file"
+        },
+        {
+          "name": "keyFile",
+          "type": "string",
+          "description": "Client key file"
+        }
+      ]
+    },
+    {
+      "name": "streaming",
+      "type": "object",
+      "properties": [
+        {
+          "name": "enableStreaming", 
+          "type": "boolean",
+          "description": "Enable NATS Streaming",
+          "default": false
+        },
+        {
+          "name": "clusterId",
+          "type": "string",
+          "description": "NATS streaming cluster id"
+        }
+      ]
+    },
+    {
+      "name": "dataType",
+      "type": "string",
+      "enum": ["string", "binary"]
+    }
+  ],
+  "output": [
+    {
+      "name": "payloadFormat",
+      "type": "string"
+    },
+    {
+      "name": "payload",
+      "type": "any"
+    }
+  ],
+  "handler": {
+    "settings": [
+      {
+        "name": "subject",
+        "type": "string",
+        "description": "NATS subject"
+      },
+      {
+        "name": "queue",
+        "type": "string",
+        "descriptoin": "NATS queue"
+      },
+      {
+        "name": "channelId",
+        "type": "string",
+        "description": "NATS streaming channel id"
+      },
+      {
+        "name": "durableName",
+        "type": "string",
+        "description": "NATS streaming durable name"
+      },
+      {
+        "name": "maxInFlight",
+        "type": "integer",
+        "description": "NATS streaming max subscriber in-flight messages",
+        "default": 0
+      },
+      {
+        "name": "dataFormat",
+        "type": "string",
+        "description": "Payload data parsing format",
+        "enum": ["string", "json"],
+        "default": "json"
+      }
+    ]
+  }
+}
