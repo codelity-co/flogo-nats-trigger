@@ -132,7 +132,6 @@ type HandlerSettings struct {
 	ChannelId string `md:"channelId"`
 	DurableName string `md:"durableName"`
 	MaxInFlight int `md:"maxInFlight"`
-	DataFormat string `md:"dataFormat"`
 }
 
 func (h *HandlerSettings) FromMap(values map[string]interface{}) error {
@@ -162,11 +161,6 @@ func (h *HandlerSettings) FromMap(values map[string]interface{}) error {
 		return err
 	}
 
-	h.DataFormat, err = coerce.ToString(values["dataFormat"])
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -177,7 +171,6 @@ func (h *HandlerSettings) ToMap() map[string]interface{} {
 		"channelId": h.ChannelId,
 		"durableName": h.DurableName,
 		"maxInFlight": h.MaxInFlight,
-		"dataFormat": h.DataFormat,
 	}
 }
 

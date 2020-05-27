@@ -155,7 +155,7 @@ func (h *Handler) handleMessage() {
 				// results map[string]interface{}
 			)
 			out := &Output{}
-			out.Payload, err = getPayloadData(h.handlerSettings.DataFormat, msg.Data)
+			out.Payload, err = getPayloadData(msg.Data)
 			if err != nil {
 				h.logger.Errorf("natsMsgChannel: Cannot parse payload %v", msg.Data)
 				continue
@@ -170,7 +170,7 @@ func (h *Handler) handleMessage() {
 				err error
 			)
 			out := &Output{}
-			out.Payload, err = getPayloadData(h.handlerSettings.DataFormat, msg.Data)
+			out.Payload, err = getPayloadData(msg.Data)
 			if err != nil {
 				h.logger.Errorf("stanMsgChannel: Cannot parse payload %v", msg.Data)
 				continue
@@ -458,7 +458,7 @@ func getStanConnection(ts *Settings, conn *nats.Conn) (stan.Conn, error) {
 	return sc, nil
 }
 
-func getPayloadData(dataFormat string, data []byte) (interface{}, error) {
+func getPayloadData(data []byte) (interface{}, error) {
 	var outputVar interface{}
 
 	err := json.Unmarshal(data, &outputVar)

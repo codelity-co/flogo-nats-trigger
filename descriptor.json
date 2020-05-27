@@ -1,7 +1,7 @@
 {
   "name": "flogo-nats-trigger",
   "type": "flogo:trigger",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "title": "Codelity Flogo NATS Trigger",
   "description": "Codelity Flogo NATS Trigger",
   "homepage": "https://github.com/codelity-co/flogo-nats-trigger",
@@ -126,11 +126,6 @@
           "description": "NATS streaming cluster id"
         }
       ]
-    },
-    {
-      "name": "dataType",
-      "type": "string",
-      "enum": ["string", "binary"]
     }
   ],
   "output": [
@@ -170,13 +165,6 @@
         "type": "integer",
         "description": "NATS streaming max subscriber in-flight messages",
         "default": 0
-      },
-      {
-        "name": "dataFormat",
-        "type": "string",
-        "description": "Payload data parsing format",
-        "enum": ["string", "json"],
-        "default": "json"
       }
     ]
   }
