@@ -1,7 +1,7 @@
 {
   "name": "flogo-nats-trigger",
   "type": "flogo:trigger",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "title": "Codelity Flogo NATS Trigger",
   "description": "Codelity Flogo NATS Trigger",
   "homepage": "https://github.com/codelity-co/flogo-nats-trigger",
@@ -165,6 +165,24 @@
         "type": "integer",
         "description": "NATS streaming max subscriber in-flight messages",
         "default": 0
+      },
+      {
+        "name": "enableAutoAcknowledgement",
+        "type": "boolean",
+        "default": true,
+        "description": "Enable NATS streaming auto acknowledgement"
+      },
+      {
+        "name": "ackWaitInSeconds",
+        "type": "integer",
+        "default": 60,
+        "description": "NATS streaming acknowledgement wait seconds"
+      },
+      {
+        "name": "enableStartWithLastReceived",
+        "type": "boolean",
+        "default": true,
+        "description": "Enable NATS streaming start with last received"
       }
     ]
   }
