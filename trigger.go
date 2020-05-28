@@ -410,10 +410,11 @@ func getNatsConnAuthOpts(settings *Settings) ([]nats.Option, error) {
 			password, ok := settings.Auth["password"] // check if password is defined
 			if !ok {
 				return nil, fmt.Errorf("Missing password")
-			} else {
-				// Create UserInfo NATS option
-				opts = append(opts, nats.UserInfo(username.(string), password.(string)))
-			}
+			} 
+			
+			// Create UserInfo NATS option
+			opts = append(opts, nats.UserInfo(username.(string), password.(string)))
+			
 		} else if token, ok := settings.Auth["token"]; ok { // Check if token is defined
 			opts = append(opts, nats.Token(token.(string)))
 		} else if nkeySeedfile, ok := settings.Auth["nkeySeedfile"]; ok { // Check if nkey seed file is defined
