@@ -65,6 +65,7 @@ func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 
 	for _, handler := range ctx.GetHandlers() {
 
+		// Create handler settings
 		logger.Debugf("Mapping handler settings...")
 		handlerSettings := &HandlerSettings{}
 		if err := handlerSettings.FromMap(handler.Settings()); err != nil {
@@ -72,6 +73,7 @@ func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 		}
 		logger.Debugf("Mapped handler settings successfully")
 
+		// Get NATS Connection
 		logger.Debugf("Getting NATS connection...")
 		nc, err := getNatsConnection(logger, t.triggerSettings)
 		if err != nil {
@@ -79,9 +81,11 @@ func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 		}
 		logger.Debugf("Got NATS connection")
 
+		// Create Stop Channel
 		logger.Debugf("Registering trigger handler...")
 		stopChannel := make(chan bool)
 
+		// Create Trigger Handler
 		natsHandler := &Handler{
 			handlerSettings: handlerSettings,
 			logger:          logger,
@@ -90,19 +94,21 @@ func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 			triggerHandler:  handler,
 		}
 
+		// Check NATS Streaming
 		if enableStreaming, ok := t.triggerSettings.Streaming["enableStreaming"]; ok {
 			natsHandler.natsStreaming = enableStreaming.(bool)
 			if natsHandler.natsStreaming {
-				natsHandler.stanConn, err = getStanConnection(t.triggerSettings, nc)
+				natsHandler.stanConn, err = getStanConnection(t.triggerSettings, nc) // Create STAN connection
 				if err != nil {
 					return err
 				}
-				natsHandler.stanMsgChannel = make(chan *stan.Msg)
+				natsHandler.stanMsgChannel = make(chan *stan.Msg) // Create STAN message channel
 			}
 		} else {
-			natsHandler.natsMsgChannel = make(chan *nats.Msg)
+			natsHandler.natsMsgChannel = make(chan *nats.Msg) // Create NATS message channel
 		}
 
+		// Append handler
 		t.natsHandlers = append(t.natsHandlers, natsHandler)
 		logger.Debugf("Registered trigger handler successfully")
 
@@ -145,11 +151,14 @@ type Handler struct {
 func (h *Handler) handleMessage() {
 	for {
 		select {
-		case done := <-h.stopChannel:
+		case done := <-h.stopChannel: // Receive message from Stop Channel
+
 			if done {
 				return
 			}
-		case msg := <-h.natsMsgChannel:
+
+		case msg := <-h.natsMsgChannel: // Receive NATS Msg from NATS message channel
+
 			var (
 				err error
 				// results map[string]interface{}
@@ -157,29 +166,62 @@ func (h *Handler) handleMessage() {
 			out := &Output{}
 			out.Payload, err = getPayloadData(msg.Data)
 			if err != nil {
-				h.logger.Errorf("natsMsgChannel: Cannot parse payload %v", msg.Data)
+				h.logger.Errorf("Cannot parse NATS message data: %v", msg.Data)
 				continue
 			}
 			out.PayloadFormat = fmt.Sprintf("%v", reflect.TypeOf(out.Payload))
-			_, err = h.triggerHandler.Handle(context.Background(), out.ToMap)
+
+			var result map[string]interface{}
+			result, err = h.triggerHandler.Handle(context.Background(), out.ToMap)
 			if err != nil {
-				h.logger.Errorf("natsMsgChannel: ", err)
+				h.logger.Errorf("Trigger handler error: %v", err)
+				continue
+			} 
+
+			var replyBytes []byte
+			replyBytes, err = createReply(h.logger, result)
+			if err != nil {
+				h.logger.Errorf("Cannot create reply struct: %v", err)
+				continue
 			}
-		case msg := <-h.stanMsgChannel:
+			err = msg.Respond(replyBytes)
+			if err != nil {
+				h.logger.Errorf("Cannot respond NATS publisher: %v", err)
+				continue
+			}
+
+		case msg := <-h.stanMsgChannel: // Receive STAN Msg from STAN message channel
+
 			var (
 				err error
 			)
+
+			// Create Output
 			out := &Output{}
+
+			// Get Payload content
 			out.Payload, err = getPayloadData(msg.Data)
 			if err != nil {
-				h.logger.Errorf("stanMsgChannel: Cannot parse payload %v", msg.Data)
+				h.logger.Errorf("Cannot parse STAN message data: %v", msg.Data)
 				continue
 			}
 			out.PayloadFormat = fmt.Sprintf("%v", reflect.TypeOf(out.Payload))
+
+			// Pass output to Handler
 			_, err = h.triggerHandler.Handle(context.Background(), out.ToMap())
 			if err != nil {
-				h.logger.Errorf("stanMsgChannel: ", err)
+				h.logger.Errorf("Trigger handler error: %v", err)
+				continue
+			} 
+
+			if !h.handlerSettings.EnableAutoAcknowledgement {
+				err = msg.Ack()
+				if err != nil {
+					h.logger.Errorf("Cannot acknowledge message: %v", err)
+					continue
+				} 
 			}
+
 		}
 	}
 }
@@ -188,37 +230,74 @@ func (h *Handler) handleMessage() {
 func (h *Handler) Start() error {
 	var err error
 	go h.handleMessage()
-	if len(h.handlerSettings.Queue) > 0 {
-		if !h.natsStreaming {
+
+	if len(h.handlerSettings.Queue) > 0 {  // if Queue info is set
+
+		if !h.natsStreaming { // if NATS connection
+			
+			// NATS Queue Subcribe
 			h.natsSubscription, err = h.natsConn.QueueSubscribe(h.handlerSettings.Subject, h.handlerSettings.Queue, func(m *nats.Msg) {
 				h.natsMsgChannel <- m
 			})
 			if err != nil {
 				return err
 			}
-		} else {
-			h.stanSubscription, err = h.stanConn.QueueSubscribe(h.handlerSettings.ChannelId, h.handlerSettings.Queue, func(m *stan.Msg) {
+
+		} else { // if NATS Streaming Connection
+
+			// Prepare Queue subscription option
+			subscriptionOptions := make([]stan.SubscriptionOption, 0)
+			if !h.handlerSettings.EnableAutoAcknowledgement {
+				subscriptionOptions = append(subscriptionOptions, stan.SetManualAckMode())
+				actWait, _ := time.ParseDuration(fmt.Sprintf("%vs", h.handlerSettings.AckWaitInSeconds))
+				subscriptionOptions = append(subscriptionOptions, stan.AckWait(actWait))
+			}
+			if h.handlerSettings.EnableStartWithLastReceived {
+				subscriptionOptions = append(subscriptionOptions, stan.StartWithLastReceived())
+			}
+
+			// STAN Queue Subscribe 
+			h.stanSubscription, err = h.stanConn.QueueSubscribe(h.handlerSettings.ChannelID, h.handlerSettings.Queue, func(m *stan.Msg) {
 				h.stanMsgChannel <- m
-			})
+			}, subscriptionOptions...)
 			if err != nil {
 				return err
 			}
 		}
-	} else {
-		if !h.natsStreaming {
+
+	} else {  // If no Queueu info
+
+		if !h.natsStreaming { // If NATS connection
+
+			// NATS Subscribe
 			h.natsSubscription, err = h.natsConn.Subscribe(h.handlerSettings.Subject, func(m *nats.Msg) {
 				h.natsMsgChannel <- m
 			})
 			if err != nil {
 				return err
 			}
-		} else {
-			h.stanSubscription, err = h.stanConn.Subscribe(h.handlerSettings.ChannelId, func(m *stan.Msg) {
+
+		} else { // if NATS Streaming connection
+
+			// Prepare subscription option
+			subscriptionOptions := make([]stan.SubscriptionOption, 0)
+			if !h.handlerSettings.EnableAutoAcknowledgement {
+				subscriptionOptions = append(subscriptionOptions, stan.SetManualAckMode())
+				actWait, _ := time.ParseDuration(fmt.Sprintf("%vs", h.handlerSettings.AckWaitInSeconds))
+				subscriptionOptions = append(subscriptionOptions, stan.AckWait(actWait))
+			}
+			if h.handlerSettings.EnableStartWithLastReceived {
+				subscriptionOptions = append(subscriptionOptions, stan.StartWithLastReceived())
+			}
+
+			// STAN Subscribe
+			h.stanSubscription, err = h.stanConn.Subscribe(h.handlerSettings.ChannelID, func(m *stan.Msg) {
 				h.stanMsgChannel <- m
-			})
+			}, subscriptionOptions...)
 			if err != nil {
 				return err
 			}
+
 		}
 
 	}
@@ -429,13 +508,13 @@ func getStanConnection(ts *Settings, conn *nats.Conn) (stan.Conn, error) {
 
 	var (
 		err       error
-		clusterId interface{}
+		clusterID interface{}
 		ok        bool
 		hostname  string
 		sc        stan.Conn
 	)
 
-	clusterId, ok = ts.Streaming["clusterId"]
+	clusterID, ok = ts.Streaming["clusterId"]
 	if !ok {
 		return nil, fmt.Errorf("clusterId not found")
 	}
@@ -450,7 +529,7 @@ func getStanConnection(ts *Settings, conn *nats.Conn) (stan.Conn, error) {
 		return nil, err
 	}
 
-	sc, err = stan.Connect(clusterId.(string), hostname, stan.NatsConn(conn))
+	sc, err = stan.Connect(clusterID.(string), hostname, stan.NatsConn(conn))
 	if err != nil {
 		return nil, err
 	}
@@ -467,4 +546,24 @@ func getPayloadData(data []byte) (interface{}, error) {
 	}
 
 	return outputVar, nil
+}
+
+func createReply(logger log.Logger, result map[string]interface{}) ([]byte, error) {
+	var err error
+
+	reply := &Reply{}
+	err = reply.FromMap(result)
+	if err != nil {
+		return nil, err
+	}
+
+	if reply.Data != nil {
+		dataJSON, err := json.Marshal(reply.Data)
+		if err != nil {
+			return nil, err
+		}
+		return dataJSON, nil
+	}
+
+	return nil, nil
 }
