@@ -1,6 +1,7 @@
 package nats
 
 import (	
+	"github.com/project-flogo/core/app/resolve"
 	"github.com/project-flogo/core/data/coerce"
 )
 
@@ -31,30 +32,42 @@ func (s *Settings) FromMap(values map[string]interface{}) error {
 	}
 
 	if values["auth"] != nil {
-		s.Auth, err = coerce.ToObject(values["auth"])
-		if err != nil {
-			return err
+		s.Auth = make(map[string]interface{})
+		for k, v := range values["auth"].(map[string]interface{}) {
+			s.Auth[k], err = s.MapValue(v)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	if values["reconnect"] != nil {
-		s.Reconnect, err = coerce.ToObject(values["reconnect"])
-		if err != nil {
-			return err
-		} 
+		s.Reconnect = make(map[string]interface{})
+		for k, v := range values["reconnect"].(map[string]interface{}) {
+			s.Reconnect[k], err = s.MapValue(v)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	if values["sslConfig"] != nil {
-		s.SslConfig, err = coerce.ToObject(values["sslConfig"])
-		if err != nil {
-			return err
+		s.SslConfig = make(map[string]interface{})
+		for k, v := range values["sslConfig"].(map[string]interface{}) {
+			s.SslConfig[k], err = s.MapValue(v)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	if values["streaming"] != nil {
-		s.Streaming, err = coerce.ToObject(values["streaming"])
-		if err != nil {
-			return err
+		s.Streaming = make(map[string]interface{})
+		for k, v := range values["streaming"].(map[string]interface{}) {
+			s.Streaming[k], err = s.MapValue(v)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -76,45 +89,45 @@ func (s *Settings) ToMap() map[string]interface{} {
 
 }
 
-// func (s *Settings) MapValue(value interface{}) (interface{}, error) {
-// 	var (
-// 		err      error
-// 		anyValue interface{}
-// 	)
+func (s *Settings) MapValue(value interface{}) (interface{}, error) {
+	var (
+		err      error
+		anyValue interface{}
+	)
 
-// 	switch val := value.(type) {
-// 	case string:
-// 		if len(val) > 0 && val[0] == '=' {
-// 			anyValue, err = resolve.Resolve(val[1:], nil)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 		} else {
-// 			anyValue, err = coerce.ToAny(val)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 		}
+	switch val := value.(type) {
+	case string:
+		if len(val) > 0 && val[0] == '=' {
+			anyValue, err = resolve.Resolve(val[1:], nil)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			anyValue, err = coerce.ToAny(val)
+			if err != nil {
+				return nil, err
+			}
+		}
 		
-// 	case map[string]interface{}:
-// 		dataMap := make(map[string]interface{})
-// 		for k, v := range val {
-// 			dataMap[k], err = s.MapValue(v)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 		}
-// 		anyValue = dataMap
+	case map[string]interface{}:
+		dataMap := make(map[string]interface{})
+		for k, v := range val {
+			dataMap[k], err = s.MapValue(v)
+			if err != nil {
+				return nil, err
+			}
+		}
+		anyValue = dataMap
 
-// 	default:
-// 		anyValue, err = coerce.ToAny(val)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 	}
+	default:
+		anyValue, err = coerce.ToAny(val)
+		if err != nil {
+			return nil, err
+		}
+	}
 
-// 	return anyValue, nil
-// }
+	return anyValue, nil
+}
 
 // HandlerSettings of Trigger
 type HandlerSettings struct {
