@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/project-flogo/core/data/metadata"
 	"github.com/project-flogo/core/support/log"
 	"github.com/project-flogo/core/trigger"
 
@@ -33,7 +32,7 @@ type Factory struct {
 func (*Factory) New(config *trigger.Config) (trigger.Trigger, error) {
 
 	s := &Settings{}
-	err := metadata.MapToStruct(config.Settings, s, true)
+	err := s.FromMap(config.Settings)
 	if err != nil {
 		return nil, err
 	}
