@@ -22,6 +22,7 @@ var triggerMd = trigger.NewMetadata(&Settings{}, &HandlerSettings{}, &Output{})
 
 func init() {
 	_ = trigger.Register(&Trigger{}, &Factory{})
+	fmt.Println("Print: init ************")
 }
 
 // Factory struct
@@ -30,29 +31,32 @@ type Factory struct {
 
 // New trigger method of Factory
 func (*Factory) New(config *trigger.Config) (trigger.Trigger, error) {
-
+	fmt.Println("Print: Factory.New() ************")
 	return &Trigger{config: config}, nil
 
 }
 
 // Metadata method of Factory
 func (f *Factory) Metadata() *trigger.Metadata {
+	fmt.Println("Print: Factory.Metadata() ************")
 	return triggerMd
 }
 
 // Trigger struct
 type Trigger struct {
-	config 					*trigger.Config
-	natsHandlers    []*Handler
+	config       *trigger.Config
+	natsHandlers []*Handler
 }
 
 // Metadata implements trigger.Trigger.Metadata
 func (t *Trigger) Metadata() *trigger.Metadata {
+	fmt.Println("Print: Trigger.Metadata() ************")
 	return triggerMd
 }
 
 // Initialize method of trigger
 func (t *Trigger) Initialize(ctx trigger.InitContext) error {
+	fmt.Println("Print: Trigger.Initialize() ************")
 
 	logger := ctx.Logger()
 	s := &Settings{}
@@ -174,7 +178,7 @@ func (h *Handler) handleMessage() {
 			if err != nil {
 				h.logger.Errorf("Trigger handler error: %v", err)
 				continue
-			} 
+			}
 
 			var replyBytes []byte
 			replyBytes, err = createReply(h.logger, result)
@@ -210,14 +214,14 @@ func (h *Handler) handleMessage() {
 			if err != nil {
 				h.logger.Errorf("Trigger handler error: %v", err)
 				continue
-			} 
+			}
 
 			if !h.handlerSettings.EnableAutoAcknowledgement {
 				err = msg.Ack()
 				if err != nil {
 					h.logger.Errorf("Cannot acknowledge message: %v", err)
 					continue
-				} 
+				}
 			}
 
 		}
@@ -229,10 +233,10 @@ func (h *Handler) Start() error {
 	var err error
 	go h.handleMessage()
 
-	if len(h.handlerSettings.Queue) > 0 {  // if Queue info is set
+	if len(h.handlerSettings.Queue) > 0 { // if Queue info is set
 
 		if !h.natsStreaming { // if NATS connection
-			
+
 			// NATS Queue Subcribe
 			h.natsSubscription, err = h.natsConn.QueueSubscribe(h.handlerSettings.Subject, h.handlerSettings.Queue, func(m *nats.Msg) {
 				h.natsMsgChannel <- m
@@ -254,7 +258,7 @@ func (h *Handler) Start() error {
 				subscriptionOptions = append(subscriptionOptions, stan.StartWithLastReceived())
 			}
 
-			// STAN Queue Subscribe 
+			// STAN Queue Subscribe
 			h.stanSubscription, err = h.stanConn.QueueSubscribe(h.handlerSettings.ChannelID, h.handlerSettings.Queue, func(m *stan.Msg) {
 				h.stanMsgChannel <- m
 			}, subscriptionOptions...)
@@ -263,7 +267,7 @@ func (h *Handler) Start() error {
 			}
 		}
 
-	} else {  // If no Queueu info
+	} else { // If no Queueu info
 
 		if !h.natsStreaming { // If NATS connection
 
@@ -408,11 +412,11 @@ func getNatsConnAuthOpts(settings *Settings) ([]nats.Option, error) {
 			password, ok := settings.Auth["password"] // check if password is defined
 			if !ok {
 				return nil, fmt.Errorf("Missing password")
-			} 
-			
+			}
+
 			// Create UserInfo NATS option
 			opts = append(opts, nats.UserInfo(username.(string), password.(string)))
-			
+
 		} else if token, ok := settings.Auth["token"]; ok { // Check if token is defined
 			opts = append(opts, nats.Token(token.(string)))
 		} else if nkeySeedfile, ok := settings.Auth["nkeySeedfile"]; ok { // Check if nkey seed file is defined
