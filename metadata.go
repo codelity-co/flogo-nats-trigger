@@ -89,6 +89,7 @@ func (s *Settings) ToMap() map[string]interface{} {
 
 }
 
+// MapValue method of Setting is used to resolve env and properties in Settings
 func (s *Settings) MapValue(value interface{}) (interface{}, error) {
 	var (
 		err      error
