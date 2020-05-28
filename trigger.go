@@ -31,13 +31,7 @@ type Factory struct {
 // New trigger method of Factory
 func (*Factory) New(config *trigger.Config) (trigger.Trigger, error) {
 
-	s := &Settings{}
-	err := s.FromMap(config.Settings)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Trigger{id: config.Id, triggerSettings: s}, nil
+	return &Trigger{config: config}, nil
 
 }
 
@@ -48,8 +42,7 @@ func (f *Factory) Metadata() *trigger.Metadata {
 
 // Trigger struct
 type Trigger struct {
-	id              string
-	triggerSettings *Settings
+	config 					*trigger.Config
 	natsHandlers    []*Handler
 }
 
@@ -62,6 +55,11 @@ func (t *Trigger) Metadata() *trigger.Metadata {
 func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 
 	logger := ctx.Logger()
+	s := &Settings{}
+	err := s.FromMap(t.config.Settings)
+	if err != nil {
+		logger.Debugf("Settings: %v", s)
+	}
 
 	for _, handler := range ctx.GetHandlers() {
 
@@ -75,7 +73,7 @@ func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 
 		// Get NATS Connection
 		logger.Debugf("Getting NATS connection...")
-		nc, err := getNatsConnection(logger, t.triggerSettings)
+		nc, err := getNatsConnection(logger, s)
 		if err != nil {
 			return err
 		}
@@ -95,10 +93,10 @@ func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 		}
 
 		// Check NATS Streaming
-		if enableStreaming, ok := t.triggerSettings.Streaming["enableStreaming"]; ok {
+		if enableStreaming, ok := s.Streaming["enableStreaming"]; ok {
 			natsHandler.natsStreaming = enableStreaming.(bool)
 			if natsHandler.natsStreaming {
-				natsHandler.stanConn, err = getStanConnection(t.triggerSettings, nc) // Create STAN connection
+				natsHandler.stanConn, err = getStanConnection(s, nc) // Create STAN connection
 				if err != nil {
 					return err
 				}
