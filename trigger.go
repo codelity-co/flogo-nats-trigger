@@ -74,12 +74,12 @@ func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 		logger.Debugf("Mapped handler settings successfully")
 
 		// Get NATS Connection
-		logger.Debugf("Getting NATS connection...")
+		logger.Infof("Getting NATS connection...")
 		nc, err := getNatsConnection(logger, s)
 		if err != nil {
 			return err
 		}
-		logger.Debugf("Got NATS connection")
+		logger.Infof("Got NATS connection")
 
 		// Create Stop Channel
 		logger.Debugf("Registering trigger handler...")
@@ -95,16 +95,20 @@ func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 		}
 
 		// Check NATS Streaming
+		logger.Infof("Checking NATS Streaming ...")
 		if enableStreaming, ok := s.Streaming["enableStreaming"]; ok {
+			logger.Infof("NATS Streaming is enabled")
 			natsHandler.natsStreaming = enableStreaming.(bool)
 			if natsHandler.natsStreaming {
 				natsHandler.stanConn, err = getStanConnection(s, nc) // Create STAN connection
 				if err != nil {
 					return err
 				}
+				logger.Infof("Got STAN connection")
 				natsHandler.stanMsgChannel = make(chan *stan.Msg) // Create STAN message channel
 			}
 		} else {
+			logger.Infof("NATS Streaming is disabled")
 			natsHandler.natsMsgChannel = make(chan *nats.Msg) // Create NATS message channel
 		}
 
