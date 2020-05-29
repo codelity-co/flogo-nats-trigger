@@ -42,8 +42,8 @@ func (f *Factory) Metadata() *trigger.Metadata {
 
 // Trigger struct
 type Trigger struct {
-	triggerConfig   *trigger.Config
-	natsHandlers 	  []*Handler
+	triggerConfig *trigger.Config
+	natsHandlers  []*Handler
 }
 
 // Metadata implements trigger.Trigger.Metadata
@@ -58,8 +58,10 @@ func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 	s := &Settings{}
 	err := s.FromMap(t.triggerConfig.Settings)
 	if err != nil {
-		logger.Debugf("Settings: %v", s)
+		return err
 	}
+
+	logger.Debugf("Settings: %v", s)
 
 	for _, handler := range ctx.GetHandlers() {
 
