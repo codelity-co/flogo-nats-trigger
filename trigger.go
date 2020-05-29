@@ -66,12 +66,13 @@ func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 	for _, handler := range ctx.GetHandlers() {
 
 		// Create handler settings
-		logger.Debugf("Mapping handler settings...")
+		logger.Infof("Mapping handler settings...")
 		handlerSettings := &HandlerSettings{}
 		if err := handlerSettings.FromMap(handler.Settings()); err != nil {
 			return err
 		}
-		logger.Debugf("Mapped handler settings successfully")
+		logger.Debugf("handlerSettings: %v", handlerSettings)
+		logger.Infof("Mapped handler settings successfully")
 
 		// Get NATS Connection
 		logger.Infof("Getting NATS connection...")
