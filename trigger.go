@@ -22,7 +22,6 @@ var triggerMd = trigger.NewMetadata(&Settings{}, &HandlerSettings{}, &Output{})
 
 func init() {
 	_ = trigger.Register(&Trigger{}, &Factory{})
-	fmt.Println("Print: init ************")
 }
 
 // Factory struct
@@ -31,36 +30,33 @@ type Factory struct {
 
 // New trigger method of Factory
 func (*Factory) New(config *trigger.Config) (trigger.Trigger, error) {
-	fmt.Println("Print: Factory.New() ************")
-	return &Trigger{config: config}, nil
+
+	return &Trigger{triggerConfig: config}, nil
 
 }
 
 // Metadata method of Factory
 func (f *Factory) Metadata() *trigger.Metadata {
-	fmt.Println("Print: Factory.Metadata() ************")
 	return triggerMd
 }
 
 // Trigger struct
 type Trigger struct {
-	config       *trigger.Config
-	natsHandlers []*Handler
+	triggerConfig   *trigger.Config
+	natsHandlers 	  []*Handler
 }
 
 // Metadata implements trigger.Trigger.Metadata
 func (t *Trigger) Metadata() *trigger.Metadata {
-	fmt.Println("Print: Trigger.Metadata() ************")
 	return triggerMd
 }
 
 // Initialize method of trigger
 func (t *Trigger) Initialize(ctx trigger.InitContext) error {
-	fmt.Println("Print: Trigger.Initialize() ************")
-
 	logger := ctx.Logger()
+
 	s := &Settings{}
-	err := s.FromMap(t.config.Settings)
+	err := s.FromMap(t.triggerConfig.Settings)
 	if err != nil {
 		logger.Debugf("Settings: %v", s)
 	}
