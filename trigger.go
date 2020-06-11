@@ -177,7 +177,7 @@ func (h *Handler) handleMessage() {
 			out.PayloadFormat = fmt.Sprintf("%v", reflect.TypeOf(out.Payload))
 
 			var result map[string]interface{}
-			result, err = h.triggerHandler.Handle(context.Background(), out.ToMap)
+			result, err = h.triggerHandler.Handle(context.Background(), out.ToMap())
 			if err != nil {
 				h.logger.Errorf("Trigger handler error: %v", err)
 				continue
@@ -573,3 +573,4 @@ func createReply(logger log.Logger, result map[string]interface{}) ([]byte, erro
 
 	return nil, nil
 }
+
