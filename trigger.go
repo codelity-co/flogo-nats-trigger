@@ -503,7 +503,7 @@ func getNatsConnReconnectOpts(settings *Settings) ([]nats.Option, error) {
 
 		// Max reconnect attempts
 		if maxReconnects, ok := settings.Reconnect["maxReconnects"]; ok {
-			opts = append(opts, nats.MaxReconnects(maxReconnects.(int)))
+			opts = append(opts, nats.MaxReconnects(int(maxReconnects.(int64))))
 		}
 
 		// Don't randomize
@@ -524,7 +524,7 @@ func getNatsConnReconnectOpts(settings *Settings) ([]nats.Option, error) {
 
 		// Reconnect buffer size in bytes
 		if reconnectBufSize, ok := settings.Reconnect["reconnectBufSize"]; ok {
-			opts = append(opts, nats.ReconnectBufSize(reconnectBufSize.(int)))
+			opts = append(opts, nats.ReconnectBufSize(int(reconnectBufSize.(int64))))
 		}
 	}
 	return opts, nil
@@ -584,8 +584,6 @@ func getStanConnection(ts *Settings, conn *nats.Conn) (stan.Conn, error) {
 	hostname, err = os.Hostname()
 	hostname = strings.Split(hostname, ".")[0]
 	hostname = strings.Split(hostname, ":")[0]
-
-	fmt.Println(hostname)
 
 	if err != nil {
 		return nil, err
