@@ -88,6 +88,12 @@
       "type": "object",
       "properties": [
         {
+          "name": "enabled",
+          "type": "boolean",
+          "description": "Enable SSL",
+          "default": false
+        },
+        {
           "name": "skipVerify",
           "type": "boolean",
           "description": "Skip SSL cert verification",
