@@ -5,13 +5,6 @@ import (
 	"github.com/project-flogo/core/data/coerce"
 )
 
-var resolver = resolve.NewCompositeResolver(map[string]resolve.Resolver{
-	".":        &resolve.ScopeResolver{},
-	"env":      &resolve.EnvResolver{},
-	"property": &property.Resolver{},
-	"loop":     &resolve.LoopResolver{},
-})
-
 // Settings of trigger
 type Settings struct {
 	ClusterUrls string                 `md:"clusterUrls,required"` // The NATS cluster to connect to
