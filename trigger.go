@@ -13,12 +13,22 @@ import (
 
 	"github.com/project-flogo/core/support/log"
 	"github.com/project-flogo/core/trigger"
+	"github.com/project-flogo/core/data"
+	"github.com/project-flogo/core/data/mapper"
+	"github.com/project-flogo/core/data/property"
+	"github.com/project-flogo/core/data/resolve"
 
 	nats "github.com/nats-io/nats.go"
 	stan "github.com/nats-io/stan.go"
 )
 
 var triggerMd = trigger.NewMetadata(&Settings{}, &HandlerSettings{}, &Output{})
+var resolver = resolve.NewCompositeResolver(map[string]resolve.Resolver{
+	".":        &resolve.ScopeResolver{},
+	"env":      &resolve.EnvResolver{},
+	"property": &property.Resolver{},
+	"loop":     &resolve.LoopResolver{},
+})
 
 func init() {
 	_ = trigger.Register(&Trigger{}, &Factory{})
@@ -62,6 +72,50 @@ func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 	}
 
 	logger.Debugf("Settings: %v", s)
+
+	// Resolving auth settings
+	if s.Auth != nil {
+		ctx.Logger().Debugf("auth settings being resolved: %v", s.Auth)
+		auth, err := resolveObject(s.Auth)
+		if err != nil {
+			return err
+		}
+		s.Auth = auth
+		ctx.Logger().Debugf("auth settings resolved: %v", s.Auth)
+	}
+
+	// Resolving reconnect settings
+	if s.Reconnect != nil {
+		ctx.Logger().Debugf("reconnect settings being resolved: %v", s.Reconnect)
+		reconnect, err := resolveObject(s.Reconnect)
+		if err != nil {
+			return err
+		}
+		s.Reconnect = reconnect
+		ctx.Logger().Debugf("reconnect settings resolved: %v", s.Reconnect)
+	}
+
+	// Resolving sslConfig settings
+	if s.SslConfig != nil {
+		ctx.Logger().Debugf("sslConfig settings being resolved: %v", s.SslConfig)
+		sslConfig, err := resolveObject(s.SslConfig)
+		if err != nil {
+			return err
+		}
+		s.SslConfig = sslConfig
+		ctx.Logger().Debugf("sslConfig settings resolved: %v", s.SslConfig)
+	}
+
+	// Resolving sslConfig settings
+	if s.Streaming != nil {
+		ctx.Logger().Debugf("streaming settings being resolved: %v", s.Streaming)
+		streaming, err := resolveObject(s.Streaming)
+		if err != nil {
+			return err
+		}
+		s.Streaming = streaming
+		ctx.Logger().Debugf("streaming settings resolved: %v", s.Streaming)
+	}
 
 	for _, handler := range ctx.GetHandlers() {
 
@@ -576,3 +630,19 @@ func createReply(logger log.Logger, result map[string]interface{}) ([]byte, erro
 	return nil, nil
 }
 
+func resolveObject(object map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+
+	mapperFactory := mapper.NewFactory(resolver)
+	valuesMapper, err := mapperFactory.NewMapper(object)
+	if err != nil {
+		return nil, err
+	}
+
+	objectValues, err := valuesMapper.Apply(data.NewSimpleScope(map[string]interface{}{}, nil))
+	if err != nil {
+		return nil, err
+	}
+
+	return objectValues, nil
+}

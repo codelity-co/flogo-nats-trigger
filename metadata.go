@@ -3,9 +3,6 @@ package nats
 import (	
 
 	"github.com/project-flogo/core/data/coerce"
-	"github.com/project-flogo/core/data/mapper"
-	"github.com/project-flogo/core/data/property"
-	"github.com/project-flogo/core/data/resolve"
 )
 
 var resolver = resolve.NewCompositeResolver(map[string]resolve.Resolver{
@@ -41,90 +38,24 @@ func (s *Settings) FromMap(values map[string]interface{}) error {
 		return err
 	}
 
-	mapperFactory := mapper.NewFactory(resolver)
-
-	if values["auth"] != nil {
-		var authOptions map[string]interface{}
-		authOptions, err = coerce.ToObject(values["auth"])
-		if err != nil {
-			return err
-		}
-
-		var authMapper mapper.Mapper
-		authMapper, err = mapperFactory.NewMapper(authOptions)
-		if err != nil {
-			return err
-		}
-	
-		var authValue map[string]interface{}
-		authValue, err = authMapper.Apply(nil)
-		if err != nil {
-			return err
-		}
-		s.Auth = authValue
+	s.Auth, err = coerce.ToObject(values["auth"])
+	if err != nil {
+		return err
 	}
 
-	if values["reconnect"] != nil {
-		var reconnectOptions map[string]interface{}
-		reconnectOptions, err = coerce.ToObject(values["reconnect"])
-		if err != nil {
-			return err
-		}
-
-		var reconnectMapper mapper.Mapper
-		reconnectMapper, err = mapperFactory.NewMapper(reconnectOptions)
-		if err != nil {
-			return err
-		}
-	
-		var reconnectValue map[string]interface{}
-		reconnectValue, err = reconnectMapper.Apply(nil)
-		if err != nil {
-			return err
-		}
-		s.Reconnect = reconnectValue
+	s.Reconnect, err = coerce.ToObject(values["reconnect"])
+	if err != nil {
+		return err
 	}
 
-	if values["sslConfig"] != nil {
-		var sslConfigOptions map[string]interface{}
-		sslConfigOptions, err = coerce.ToObject(values["sslConfig"])
-		if err != nil {
-			return err
-		}
-
-		var sslConfigMapper mapper.Mapper
-		sslConfigMapper, err = mapperFactory.NewMapper(sslConfigOptions)
-		if err != nil {
-			return err
-		}
-	
-		var sslConfigValue map[string]interface{}
-		sslConfigValue, err = sslConfigMapper.Apply(nil)
-		if err != nil {
-			return err
-		}
-		s.SslConfig = sslConfigValue
+	s.SslConfig, err = coerce.ToObject(values["sslConfig"])
+	if err != nil {
+		return err
 	}
-
-	if values["streaming"] != nil {
-		var streamingOptions map[string]interface{}
-		streamingOptions, err = coerce.ToObject(values["streaming"])
-		if err != nil {
-			return err
-		}
-		
-		var streamingMapper mapper.Mapper
-		streamingMapper, err = mapperFactory.NewMapper(streamingOptions)
-		if err != nil {
-			return err
-		}
 	
-		var streamingValue map[string]interface{}
-		streamingValue, err = streamingMapper.Apply(nil)
-		if err != nil {
-			return err
-		}
-		s.Streaming = streamingValue
+	s.Streaming, err = coerce.ToObject(values["streaming"])
+	if err != nil {
+		return err
 	}
 
 	return nil
