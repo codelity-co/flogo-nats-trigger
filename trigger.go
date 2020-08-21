@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/project-flogo/core/support/log"
-	"github.com/project-flogo/core/trigger"
 	"github.com/project-flogo/core/data"
 	"github.com/project-flogo/core/data/mapper"
 	"github.com/project-flogo/core/data/property"
 	"github.com/project-flogo/core/data/resolve"
+	"github.com/project-flogo/core/support/log"
+	"github.com/project-flogo/core/trigger"
 
 	nats "github.com/nats-io/nats.go"
 	stan "github.com/nats-io/stan.go"
@@ -535,32 +535,30 @@ func getNatsConnSslConfigOpts(settings *Settings) ([]nats.Option, error) {
 
 	// Check sslConfig setting
 	if settings.SslConfig != nil {
-		if settings.SslConfig["enabled"].(bool) {
-			// Skip verify
-			if skipVerify, ok := settings.SslConfig["skipVerify"]; ok {
-				opts = append(opts, nats.Secure(&tls.Config{
-					InsecureSkipVerify: skipVerify.(bool),
-				}))
-			}
 
-			// CA Root
-			if caFile, ok := settings.SslConfig["caFile"]; ok {
-				opts = append(opts, nats.RootCAs(caFile.(string)))
-				// Cert file
-				if certFile, ok := settings.SslConfig["certFile"]; ok {
-					if keyFile, ok := settings.SslConfig["keyFile"]; ok {
-						opts = append(opts, nats.ClientCert(certFile.(string), keyFile.(string)))
-					} else {
-						return nil, fmt.Errorf("Missing keyFile setting")
-					}
+		// Skip verify
+		if skipVerify, ok := settings.SslConfig["skipVerify"]; ok {
+			opts = append(opts, nats.Secure(&tls.Config{
+				InsecureSkipVerify: skipVerify.(bool),
+			}))
+		}
+
+		// CA Root
+		if caFile, ok := settings.SslConfig["caFile"]; ok {
+			opts = append(opts, nats.RootCAs(caFile.(string)))
+			// Cert file
+			if certFile, ok := settings.SslConfig["certFile"]; ok {
+				if keyFile, ok := settings.SslConfig["keyFile"]; ok {
+					opts = append(opts, nats.ClientCert(certFile.(string), keyFile.(string)))
 				} else {
-					return nil, fmt.Errorf("Missing certFile setting")
+					return nil, fmt.Errorf("Missing keyFile setting")
 				}
 			} else {
-				return nil, fmt.Errorf("Missing caFile setting")
+				return nil, fmt.Errorf("Missing certFile setting")
 			}
+		} else {
+			return nil, fmt.Errorf("Missing caFile setting")
 		}
-		
 
 	}
 	return opts, nil
