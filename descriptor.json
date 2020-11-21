@@ -7,125 +7,117 @@
   "homepage": "https://github.com/codelity-co/flogo-nats-trigger",
   "settings": [
     {
-      "name": "clusterUrls",
+      "name": "natsClusterUrls",
       "type": "string",
-      "required": true
+      "required": true,
+      "default": "nats://127.0.0.1:4222"
     },
     {
-      "name": "connName",
-      "type": "string"
+      "name": "natsConnName",
+      "type": "string",
+      "default": ""
     },
     {
-      "name": "auth",
-      "type": "object",
-      "properties": [
-        {
-          "name": "username",
-          "type": "string",
-          "decription": "NATS username"
-        },
-        {
-          "name": "password",
-          "type": "string",
-          "format": "password",
-          "description": "NATS user password, required if username is defined"
-        },
-        {
-          "name": "token",
-          "type": "string",
-          "description": "NATS token authentication"
-        },
-        {
-          "name": "nkeySeedfile",
-          "type": "string",
-          "description": "Seed file path to read NATS NKey seed"
-        },
-        {
-          "name": "credfile",
-          "type": "string",
-          "description": "Credential file path for decentralized authentication based on JSON Web Tokens (JWT)."
-        }
-      ]
+      "name": "payloadFormat",
+      "type": "string",
+      "allowed": ["JSON", "CSV"],
+      "default": "JSON"
     },
     {
-      "name": "reconnect",
-      "type": "object",
-      "properties": [
-        {
-          "name": "autoReconnect",
-          "type": "boolean",
-          "description": "Enable NATS connection reconnect",
-          "default": true
-        }, 
-        {
-          "name": "maxReconnects",
-          "type": "integer",
-          "description": "Max Reconnect Attempts",
-          "default": 5
-        },
-        {
-          "name": "dontRandomize",
-          "type": "boolean",
-          "description": "Disable randomize reconnection",
-          "default": false
-        },
-        {
-          "name": "reconnectWait",
-          "type": "integer",
-          "description": "Reconnect wait in seconds",
-          "default": 1
-        },
-        {
-          "name": "reconnectBufferSize",
-          "type": "integer",
-          "description": "Reconnect buffer size",
-          "default": 1048576
-        }
-      ]
+      "name": "natsUserName",
+      "type": "string",
+      "decription": "NATS username",
+      "default": ""
     },
     {
-      "name": "sslConfig",
-      "type": "object",
-      "properties": [
-        {
-          "name": "skipVerify",
-          "type": "boolean",
-          "description": "Skip SSL cert verification",
-          "default": true
-        },
-        {
-          "name": "caFile",
-          "type": "string",
-          "description": "CA root public key file"
-        },
-        {
-          "name": "certFile",
-          "type": "string",
-          "description": "Client cert file"
-        },
-        {
-          "name": "keyFile",
-          "type": "string",
-          "description": "Client key file"
-        }
-      ]
+      "name": "natsUserPassword",
+      "type": "string",
+      "description": "NATS user password, required if username is defined",
+      "default": ""
     },
     {
-      "name": "streaming",
-      "type": "object",
-      "properties": [
-        {
-          "name": "enableStreaming", 
-          "type": "boolean",
-          "description": "Enable NATS Streaming",
-          "default": false
-        },
-        {
-          "name": "clusterId",
-          "type": "string",
-          "description": "NATS streaming cluster id"
-        }
-      ]
+      "name": "natsToken",
+      "type": "string",
+      "description": "NATS token authentication",
+      "default": ""
+    },
+    {
+      "name": "natsNkeySeedfile",
+      "type": "string",
+      "description": "Seed file path to read NATS NKey seed",
+      "default": ""
+    },
+    {
+      "name": "natsCredentialFile",
+      "type": "string",
+      "description": "Credential file path for decentralized authentication based on JSON Web Tokens (JWT).",
+      "default": ""
+    },
+    {
+      "name": "autoReconnect",
+      "type": "boolean",
+      "description": "Enable NATS connection reconnect",
+      "default": true
+    }, 
+    {
+      "name": "maxReconnects",
+      "type": "integer",
+      "description": "Max Reconnect Attempts",
+      "default": 60
+    },
+    {
+      "name": "enableRandomReconnection",
+      "type": "boolean",
+      "description": "Disable randomize reconnection",
+      "default": false
+    },
+    {
+      "name": "reconnectWait",
+      "type": "integer",
+      "description": "Reconnect wait in seconds",
+      "default": 2
+    },
+    {
+      "name": "reconnectBufferSize",
+      "type": "integer",
+      "description": "Reconnect buffer size",
+      "default": 8388608
+    },
+    {
+      "name": "skipVerify",
+      "type": "boolean",
+      "description": "Skip SSL cert verification",
+      "default": false
+    },
+    {
+      "name": "caFile",
+      "type": "string",
+      "description": "CA root public key file",
+      "default": ""
+    },
+    {
+      "name": "certFile",
+      "type": "string",
+      "description": "Client cert file",
+      "default": ""
+    },
+    {
+      "name": "keyFile",
+      "type": "string",
+      "description": "Client key file",
+      "default": ""
+    },
+    {
+      "name": "enableStreaming", 
+      "type": "boolean",
+      "description": "Enable NATS Streaming",
+      "default": false
+    },
+    {
+      "name": "stanClusterID",
+      "type": "string",
+      "description": "NATS streaming cluster id",
+      "default": ""
     }
   ],
   "output": [
