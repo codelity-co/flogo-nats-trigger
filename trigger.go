@@ -557,7 +557,12 @@ func getStanConnection(logger log.Logger, settings *Settings, conn *nats.Conn) (
 	logger.Debugf("hostname: %v", hostname)
 	logger.Debugf("natsConn: %v", conn)
 
-	sc, err := stan.Connect(settings.StanClusterID, hostname, stan.NatsConn(conn))
+	var options []stan.Option
+	for _, value := range settings.ToMap() {
+		options = append(options, value.(stan.Option))
+	}
+	options  = append(options, stan.NatsConn(conn))
+	sc, err := stan.Connect(settings.StanClusterID, hostname, options...)
 	if err != nil {
 		return nil, err
 	}
