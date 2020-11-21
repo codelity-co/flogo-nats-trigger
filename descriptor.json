@@ -130,6 +130,13 @@
       "type": "any"
     }
   ],
+  "reply": [
+    {
+      "name": "data",
+      "type": "bytes",
+      "description": "Result object to hold return data"
+    }
+  ],
   "handler": {
     "settings": [
       {
