@@ -11,6 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/project-flogo/core/data"
+	"github.com/project-flogo/core/data/mapper"
+	"github.com/project-flogo/core/data/metadata"
+	"github.com/project-flogo/core/data/property"
+	"github.com/project-flogo/core/data/resolve"
 	"github.com/project-flogo/core/support/log"
 	"github.com/project-flogo/core/trigger"
 
@@ -19,6 +24,12 @@ import (
 )
 
 var triggerMd = trigger.NewMetadata(&Settings{}, &HandlerSettings{}, &Output{})
+var resolver = resolve.NewCompositeResolver(map[string]resolve.Resolver{
+	".":        &resolve.ScopeResolver{},
+	"env":      &resolve.EnvResolver{},
+	"property": &property.Resolver{},
+	"loop":     &resolve.LoopResolver{},
+})
 
 func init() {
 	_ = trigger.Register(&Trigger{}, &Factory{})
@@ -28,22 +39,34 @@ func init() {
 type Factory struct {
 }
 
+// Trigger struct
+type Trigger struct {
+	settings *Settings
+	id string
+	natsHandlers []*Handler
+}
+
+
 // New trigger method of Factory
 func (*Factory) New(config *trigger.Config) (trigger.Trigger, error) {
+	s := &Settings{}
+	sMap, err := resolveObject(config.Settings)
+	if err != nil {
+		return nil, err
+	}
 
-	return &Trigger{triggerConfig: config}, nil
+	err = metadata.MapToStruct(sMap, s, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Trigger{id: config.Id, settings: s}, nil
 
 }
 
 // Metadata method of Factory
 func (f *Factory) Metadata() *trigger.Metadata {
 	return triggerMd
-}
-
-// Trigger struct
-type Trigger struct {
-	triggerConfig *trigger.Config
-	natsHandlers  []*Handler
 }
 
 // Metadata implements trigger.Trigger.Metadata
@@ -55,106 +78,26 @@ func (t *Trigger) Metadata() *trigger.Metadata {
 func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 	logger := ctx.Logger()
 
-	s := &Settings{}
-	err := s.FromMap(t.triggerConfig.Settings)
-	if err != nil {
-		return err
-	}
-
-	logger.Debugf("Settings: %v", s)
-
-	// Resolving auth settings
-	// if s.Auth != nil {
-	// 	ctx.Logger().Debugf("auth settings being resolved: %v", s.Auth)
-	// 	auth, err := resolveObject(s.Auth)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	s.Auth = auth
-	// 	ctx.Logger().Debugf("auth settings resolved: %v", s.Auth)
-	// }
-
-	// Resolving reconnect settings
-	// if s.Reconnect != nil {
-	// 	ctx.Logger().Debugf("reconnect settings being resolved: %v", s.Reconnect)
-	// 	reconnect, err := resolveObject(s.Reconnect)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	s.Reconnect = reconnect
-	// 	ctx.Logger().Debugf("reconnect settings resolved: %v", s.Reconnect)
-	// }
-
-	// Resolving sslConfig settings
-	// if s.SslConfig != nil {
-	// 	ctx.Logger().Debugf("sslConfig settings being resolved: %v", s.SslConfig)
-	// 	sslConfig, err := resolveObject(s.SslConfig)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	s.SslConfig = sslConfig
-	// 	ctx.Logger().Debugf("sslConfig settings resolved: %v", s.SslConfig)
-	// }
-
-	// Resolving sslConfig settings
-	// if s.Streaming != nil {
-	// 	ctx.Logger().Debugf("streaming settings being resolved: %v", s.Streaming)
-	// 	streaming, err := resolveObject(s.Streaming)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	s.Streaming = streaming
-	// 	ctx.Logger().Debugf("streaming settings resolved: %v", s.Streaming)
-	// }
+	logger.Debugf("Trigger Settings: %v", t.settings)
 
 	for _, handler := range ctx.GetHandlers() {
 
 		// Create handler settings
 		logger.Infof("Mapping handler settings...")
 		handlerSettings := &HandlerSettings{}
-		if err := handlerSettings.FromMap(handler.Settings()); err != nil {
+		if err := metadata.MapToStruct(handler.Settings(), handlerSettings, true); err != nil {
 			return err
 		}
 		logger.Debugf("handlerSettings: %v", handlerSettings)
 		logger.Infof("Mapped handler settings successfully")
 
-		// Get NATS Connection
-		logger.Infof("Getting NATS connection...")
-		nc, err := getNatsConnection(logger, s)
-		if err != nil {
-			return err
-		}
-		logger.Infof("Got NATS connection")
-
-		// Create Stop Channel
-		logger.Debugf("Registering trigger handler...")
-		stopChannel := make(chan bool)
-
 		// Create Trigger Handler
 		natsHandler := &Handler{
+			triggerSettings: t.settings,
 			handlerSettings: handlerSettings,
 			logger:          logger,
-			natsConn:        nc,
-			stopChannel:     stopChannel,
+			stopChannel: make(chan bool),
 			triggerHandler:  handler,
-		}
-
-		// Check NATS Streaming
-		logger.Infof("Checking NATS Streaming ...")
-		if s.EnableStreaming {
-			logger.Infof("NATS Streaming is enabled")
-			natsHandler.natsStreaming = s.EnableStreaming
-			if natsHandler.natsStreaming {
-				natsHandler.stanConn, err = getStanConnection(logger, s, nc) // Create STAN connection
-				if err != nil {
-					return err
-				}
-				logger.Infof("Got STAN connection")
-				natsHandler.stanMsgChannel = make(chan *stan.Msg) // Create STAN message channel
-			}
-		} else {
-			logger.Infof("NATS Streaming is disabled")
-			natsHandler.natsMsgChannel = make(chan *nats.Msg) // Create NATS message channel
 		}
 
 		// Append handler
@@ -168,8 +111,22 @@ func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 
 // Start implements util.Managed.Start
 func (t *Trigger) Start() error {
+	var err error 
+
 	for _, handler := range t.natsHandlers {
-		_ = handler.Start()
+
+		err = handler.getConnection()
+		if err != nil {
+			return err
+		}
+
+		// _ = handler.Start()
+		go handler.handleMessage()
+
+		err = handler.startChannel()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -177,24 +134,133 @@ func (t *Trigger) Start() error {
 // Stop implements util.Managed.Stop
 func (t *Trigger) Stop() error {
 	for _, handler := range t.natsHandlers {
-		_ = handler.Stop()
+		handler.stopChannel <- true
+		if !t.settings.EnableStreaming {
+			close(handler.natsMsgChannel)
+		} else {
+			close(handler.stanMsgChannel)
+			handler.stanConn.Close()
+		}
+		close(handler.stopChannel)
+		_ = handler.natsConn.Drain()
+		handler.natsConn.Close()
 	}
 	return nil
 }
 
 // Handler is a NATS subject handler
 type Handler struct {
+	triggerSettings  *Settings
 	handlerSettings  *HandlerSettings
 	logger           log.Logger
 	natsConn         *nats.Conn
 	natsMsgChannel   chan *nats.Msg
-	natsStreaming    bool
 	natsSubscription *nats.Subscription
 	stanConn         stan.Conn
 	stanMsgChannel   chan *stan.Msg
 	stanSubscription stan.Subscription
 	stopChannel      chan bool
 	triggerHandler   trigger.Handler
+}
+
+func (h *Handler) getConnection() error {
+	var err error
+
+	// Get NATS Connection
+	h.logger.Infof("Getting NATS connection...")
+	nc, err := getNatsConnection(h.logger, h.triggerSettings)
+	if err != nil {
+		return err
+	}
+	h.natsConn = nc
+	h.logger.Infof("Got NATS connection")
+
+	// Check NATS Streaming
+	h.logger.Infof("Checking NATS Streaming ...")
+	if h.triggerSettings.EnableStreaming {
+		h.logger.Infof("NATS Streaming is enabled")
+		h.stanConn, err = getStanConnection(h.logger, h.triggerSettings, nc) // Create STAN connection
+		if err != nil {
+			return err
+		}
+		h.logger.Infof("Got STAN connection")
+		h.stanMsgChannel = make(chan *stan.Msg) // Create STAN message channel
+		
+	} else {
+		h.logger.Infof("NATS Streaming is disabled")
+		h.natsMsgChannel = make(chan *nats.Msg) // Create NATS message channel
+	}
+	return nil
+}
+
+func (h *Handler) startChannel() error {
+	var err error
+
+	if len(h.handlerSettings.Queue) > 0 {
+		if !h.triggerSettings.EnableStreaming {
+			// NATS Queue Subcribe
+			h.natsSubscription, err = h.natsConn.QueueSubscribe(h.handlerSettings.Subject, h.handlerSettings.Queue, func(m *nats.Msg) {
+				h.natsMsgChannel <- m
+			})
+			if err != nil {
+				return err
+			}
+		} else {
+			// Prepare Queue subscription option
+			subscriptionOptions := make([]stan.SubscriptionOption, 0)
+			if !h.handlerSettings.EnableAutoAcknowledgement {
+				subscriptionOptions = append(subscriptionOptions, stan.SetManualAckMode())
+				actWait, _ := time.ParseDuration(fmt.Sprintf("%vs", h.handlerSettings.AckWaitInSeconds))
+				subscriptionOptions = append(subscriptionOptions, stan.AckWait(actWait))
+			}
+			if h.handlerSettings.EnableStartWithLastReceived {
+				subscriptionOptions = append(subscriptionOptions, stan.StartWithLastReceived())
+			}
+
+			// STAN Queue Subscribe
+			h.stanSubscription, err = h.stanConn.QueueSubscribe(h.handlerSettings.ChannelID, h.handlerSettings.Queue, func(m *stan.Msg) {
+				h.stanMsgChannel <- m
+			}, subscriptionOptions...)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		if !h.triggerSettings.EnableStreaming { // If NATS connection
+
+			// NATS Subscribe
+			h.natsSubscription, err = h.natsConn.Subscribe(h.handlerSettings.Subject, func(m *nats.Msg) {
+				h.natsMsgChannel <- m
+			})
+			if err != nil {
+				return err
+			}
+
+		} else { // if NATS Streaming connection
+
+			// Prepare subscription option
+			subscriptionOptions := make([]stan.SubscriptionOption, 0)
+			if !h.handlerSettings.EnableAutoAcknowledgement {
+				subscriptionOptions = append(subscriptionOptions, stan.SetManualAckMode())
+				actWait, _ := time.ParseDuration(fmt.Sprintf("%vs", h.handlerSettings.AckWaitInSeconds))
+				subscriptionOptions = append(subscriptionOptions, stan.AckWait(actWait))
+			}
+			if h.handlerSettings.EnableStartWithLastReceived {
+				subscriptionOptions = append(subscriptionOptions, stan.StartWithLastReceived())
+			}
+
+			// STAN Subscribe
+			h.stanSubscription, err = h.stanConn.Subscribe(h.handlerSettings.ChannelID, func(m *stan.Msg) {
+				h.stanMsgChannel <- m
+			}, subscriptionOptions...)
+			if err != nil {
+				return err
+			}
+
+		}
+	}
+
+	return nil
 }
 
 func (h *Handler) handleMessage() {
@@ -273,104 +339,6 @@ func (h *Handler) handleMessage() {
 
 		}
 	}
-}
-
-// Start starts the handler
-func (h *Handler) Start() error {
-	var err error
-	go h.handleMessage()
-
-	if len(h.handlerSettings.Queue) > 0 { // if Queue info is set
-
-		if !h.natsStreaming { // if NATS connection
-
-			// NATS Queue Subcribe
-			h.natsSubscription, err = h.natsConn.QueueSubscribe(h.handlerSettings.Subject, h.handlerSettings.Queue, func(m *nats.Msg) {
-				h.natsMsgChannel <- m
-			})
-			if err != nil {
-				return err
-			}
-
-		} else { // if NATS Streaming Connection
-
-			// Prepare Queue subscription option
-			subscriptionOptions := make([]stan.SubscriptionOption, 0)
-			if !h.handlerSettings.EnableAutoAcknowledgement {
-				subscriptionOptions = append(subscriptionOptions, stan.SetManualAckMode())
-				actWait, _ := time.ParseDuration(fmt.Sprintf("%vs", h.handlerSettings.AckWaitInSeconds))
-				subscriptionOptions = append(subscriptionOptions, stan.AckWait(actWait))
-			}
-			if h.handlerSettings.EnableStartWithLastReceived {
-				subscriptionOptions = append(subscriptionOptions, stan.StartWithLastReceived())
-			}
-
-			// STAN Queue Subscribe
-			h.stanSubscription, err = h.stanConn.QueueSubscribe(h.handlerSettings.ChannelID, h.handlerSettings.Queue, func(m *stan.Msg) {
-				h.stanMsgChannel <- m
-			}, subscriptionOptions...)
-			if err != nil {
-				return err
-			}
-		}
-
-	} else { // If no Queueu info
-
-		if !h.natsStreaming { // If NATS connection
-
-			// NATS Subscribe
-			h.natsSubscription, err = h.natsConn.Subscribe(h.handlerSettings.Subject, func(m *nats.Msg) {
-				h.natsMsgChannel <- m
-			})
-			if err != nil {
-				return err
-			}
-
-		} else { // if NATS Streaming connection
-
-			// Prepare subscription option
-			subscriptionOptions := make([]stan.SubscriptionOption, 0)
-			if !h.handlerSettings.EnableAutoAcknowledgement {
-				subscriptionOptions = append(subscriptionOptions, stan.SetManualAckMode())
-				actWait, _ := time.ParseDuration(fmt.Sprintf("%vs", h.handlerSettings.AckWaitInSeconds))
-				subscriptionOptions = append(subscriptionOptions, stan.AckWait(actWait))
-			}
-			if h.handlerSettings.EnableStartWithLastReceived {
-				subscriptionOptions = append(subscriptionOptions, stan.StartWithLastReceived())
-			}
-
-			// STAN Subscribe
-			h.stanSubscription, err = h.stanConn.Subscribe(h.handlerSettings.ChannelID, func(m *stan.Msg) {
-				h.stanMsgChannel <- m
-			}, subscriptionOptions...)
-			if err != nil {
-				return err
-			}
-
-		}
-
-	}
-	return nil
-}
-
-// Stop stops the handler
-func (h *Handler) Stop() error {
-
-	h.stopChannel <- true
-
-	if !h.natsStreaming {
-		close(h.natsMsgChannel)
-	} else {
-		close(h.stanMsgChannel)
-		h.stanConn.Close()
-	}
-
-	close(h.stopChannel)
-
-	_ = h.natsConn.Drain()
-	h.natsConn.Close()
-
-	return nil
 }
 
 func getNatsConnection(logger log.Logger, settings *Settings) (*nats.Conn, error) {
@@ -601,19 +569,19 @@ func createReply(logger log.Logger, result map[string]interface{}) ([]byte, erro
 	return nil, nil
 }
 
-// func resolveObject(object map[string]interface{}) (map[string]interface{}, error) {
-// 	var err error
+func resolveObject(object map[string]interface{}) (map[string]interface{}, error) {
+	var err error
 
-// 	mapperFactory := mapper.NewFactory(resolver)
-// 	valuesMapper, err := mapperFactory.NewMapper(object)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	mapperFactory := mapper.NewFactory(resolver)
+	valuesMapper, err := mapperFactory.NewMapper(object)
+	if err != nil {
+		return nil, err
+	}
 
-// 	objectValues, err := valuesMapper.Apply(data.NewSimpleScope(map[string]interface{}{}, nil))
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	objectValues, err := valuesMapper.Apply(data.NewSimpleScope(map[string]interface{}{}, nil))
+	if err != nil {
+		return nil, err
+	}
 
-// 	return objectValues, nil
-// }
+	return objectValues, nil
+}
