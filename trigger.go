@@ -121,7 +121,7 @@ func (t *Trigger) Start() error {
 		}
 
 		// _ = handler.Start()
-		go handler.handleMessage()
+		go handler.HandleMessage()
 
 		err = handler.startChannel()
 		if err != nil {
@@ -263,7 +263,7 @@ func (h *Handler) startChannel() error {
 	return nil
 }
 
-func (h *Handler) handleMessage() {
+func (h *Handler) HandleMessage() {
 	for {
 		select {
 		case done := <-h.stopChannel: // Receive message from Stop Channel
