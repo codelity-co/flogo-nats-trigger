@@ -69,11 +69,6 @@ func (f *Factory) Metadata() *trigger.Metadata {
 	return triggerMd
 }
 
-// Metadata implements trigger.Trigger.Metadata
-func (t *Trigger) Metadata() *trigger.Metadata {
-	return triggerMd
-}
-
 // Initialize method of trigger
 func (t *Trigger) Initialize(ctx trigger.InitContext) error {
 	logger := ctx.Logger()
