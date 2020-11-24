@@ -4,6 +4,8 @@ go 1.13
 
 require (
 	github.com/golang/protobuf v1.4.2 // indirect
+	github.com/nats-io/gnatsd v1.4.1
+	github.com/nats-io/nats-server v1.4.1
 	github.com/nats-io/nats-server/v2 v2.1.7 // indirect
 	github.com/nats-io/nats-streaming-server v0.17.0 // indirect
 	github.com/nats-io/nats.go v1.10.0
